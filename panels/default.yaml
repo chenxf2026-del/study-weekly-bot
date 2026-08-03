@@ -1,0 +1,193 @@
+# panels/default.yaml — V0 默认评委 panel (v3.1)
+#
+# panel 体系三层:
+#   - 1 anchor 评委 (按 anchor_slug 指向 config.yaml anchor.slug, 默认 tian)
+#   - 6 dimension 评委 (各持 doctrine, 按议题类型 auto-select 3-4 个上场)
+#   - 5 lens (固定打分尺, 所有评委适用)
+#
+# 反方机制内化为每份 review 必填 adversarial_view 字段。
+#
+# multi-anchor 演进 (见 docs/adr/ADR-001-multi-anchor-architecture.md):
+# anchor_slug 字段允许 panel 绑定到具体锚点的 perspective skill。
+# 同一套 dimension 评委 + 5 lens + adversarial_view 流水线可服务任意锚点。
+
+name: default
+anchor_slug: tian                          # ★ 绑定到 config.yaml anchor.slug · 决定 anchor 评委身份
+display_name: V0 默认 panel (锚点 anchor + 6 维度评委)
+description: |
+  V0 期 panel = 1 anchor (锚点) + 6 dimension 评委。
+  议题类型自动 auto-select 维度评委上场, 节省 LLM 调用 (而非全 6 维默认全上)。
+  详见 CLAUDE.md §4.5 + §5。
+
+# ─── 评委注册 ───
+judges:
+  # Anchor 评委 (基准对照, 始终上场)
+  - slug: tian
+    display_name_cn: 锚点
+    display_name_en: Tian
+    judge_category: anchor
+    language: zh
+    weight: 1.0                       # weight 仅在维度加权时使用; anchor 不参与
+    skill_path: anchors/tian/perspective/SKILL.md
+    always_active: true               # anchor 永不被 auto-select 跳过
+    notes: |
+      anchor 评委, 提供锚点本人心证基线。
+      与 6 维度评委加权均分对比, 输出 anchor_delta 让锚点自己反思。
+      若 |anchor_delta| > 2.0, 飞书卡片高亮"维度与锚点判断有显著差异"。
+
+  # Dimension 评委 (按议题 auto-select)
+  - slug: industry-trend
+    display_name_cn: 行业趋势
+    display_name_en: Industry Trend
+    judge_category: dimension
+    language: zh
+    weight: 1.0
+    skill_path: skills/industry-trend-perspective/SKILL.md
+    notes: |
+      宏观经济 + AI 产业 + 安全行业。
+      doctrine: PEST / Porter 5 Forces / Hype Cycle / Crossing Chasm。
+      唯一允许调 WebSearch 的评委 (外部信号入口)。
+
+  - slug: strategic-vision
+    display_name_cn: 战略目标
+    display_name_en: Strategic Vision
+    judge_category: dimension
+    language: zh
+    weight: 1.0
+    skill_path: skills/strategic-vision-perspective/SKILL.md
+    notes: |
+      愿景 / 使命 / 价值观一致性。
+      doctrine: BHAG / Golden Circle / Drucker 5Q / 7 Powers。
+      依赖 _wiki/concepts/boss-mission.md (项目主理 W1 填)。
+
+  - slug: customer-strategy
+    display_name_cn: 客户战略
+    display_name_en: Customer Strategy
+    judge_category: dimension
+    language: zh
+    weight: 1.0
+    skill_path: skills/customer-strategy-perspective/SKILL.md
+    notes: |
+      客户选择 / 细分 / 聚焦。
+      doctrine: T&W 价值学派 / JTBD / ICP / Moore 客户分层。
+      依赖 _wiki/entities/client-*.md (项目主理 W1 填 ≥ 5 个真实客户)。
+
+  - slug: product-strategy
+    display_name_cn: 产品战略
+    display_name_en: Product Strategy
+    judge_category: dimension
+    language: zh
+    weight: 1.0
+    skill_path: skills/product-strategy-perspective/SKILL.md
+    notes: |
+      商业模式 / 产品业务 / MVP 收敛度。
+      doctrine: BMC / Lean MVP / Discovery vs Delivery / OST。
+
+  - slug: org-strategy
+    display_name_cn: 组织战略
+    display_name_en: Org Strategy
+    judge_category: dimension
+    language: zh
+    weight: 1.0
+    skill_path: skills/org-strategy-perspective/SKILL.md
+    notes: |
+      组织变革 / 人才战略。
+      doctrine: McKinsey 7S / Beer 变革公式 / Lencioni / Blitzscaling。
+      涉及具体人员时 sensitivity 升级 tian_only。
+
+  - slug: financial-strategy
+    display_name_cn: 经营战略
+    display_name_en: Financial Strategy
+    judge_category: dimension
+    language: zh
+    weight: 1.0
+    skill_path: skills/financial-strategy-perspective/SKILL.md
+    notes: |
+      盈利模式 / 盈利能力 / Unit Economics。
+      doctrine: Economic Moat / LTV-CAC / Rumelt Kernel / Profit Pool。
+      数字用量级表述, 精确数字仅在 tian-only 隔离版。
+
+# ─── auto-select 规则 (CLAUDE.md §5.2 line 316) ───
+# Phase 1 PRD 阶段, Lead 根据议题类型从下面规则中 auto-select dimensions 上场。
+# 用户可在 GATE 1 用 --panel-add / --panel-drop 微调。
+auto_judge_selection:
+  default_include: [tian]             # anchor 永远在
+  default_dimension_count: 4          # 每次默认上 4 个 dimension (含 anchor 共 5 位评委)
+
+  rules:
+    strategic:                        # 战略议题 (业务方向 / 时机 / 取舍)
+      dimensions: [industry-trend, strategic-vision, financial-strategy, org-strategy]
+      reason: "战略议题需要外部时机 + 长期方向 + 经济可行 + 组织能承"
+
+    product:                          # 产品议题 (新产品 / 商业模式)
+      dimensions: [industry-trend, product-strategy, customer-strategy, financial-strategy]
+      reason: "产品议题需要市场时机 + 商业模式 + 客户 + 经济"
+
+    organizational:                   # 组织议题 (人事 / 变革)
+      dimensions: [org-strategy, strategic-vision, financial-strategy, product-strategy]
+      reason: "组织议题先看团队 + 愿景一致 + 财务可承 + 产品方向影响"
+
+    customer:                         # 客户议题 (大客户战略 / 客户级决策)
+      dimensions: [customer-strategy, product-strategy, financial-strategy, industry-trend]
+      reason: "客户议题以客户为主轴 + 产品/经济/行业为协同"
+
+    financial:                        # 经营议题 (定价 / 融资 / 成本)
+      dimensions: [financial-strategy, customer-strategy, industry-trend, strategic-vision]
+      reason: "经营议题以经济为主轴 + 客户 / 行业 / 战略一致性"
+
+    brand:                            # 品牌议题 (定位 / 隔离 / 推广)
+      dimensions: [customer-strategy, strategic-vision, industry-trend, product-strategy]
+      reason: "品牌议题以客户感知 + 长期定位为主"
+
+    cross_domain:                     # 跨领域议题 — 全 6 维上场
+      dimensions: [industry-trend, strategic-vision, customer-strategy, product-strategy, org-strategy, financial-strategy]
+      reason: "议题跨多个维度, 全员上场, panel 共 7 位评委"
+
+    meta_framework:                   # 元判别框架议题 (e.g. C-2026-0006) — 全 6 维上场
+      dimensions: [industry-trend, strategic-vision, customer-strategy, product-strategy, org-strategy, financial-strategy]
+      reason: "元判别议题不押单点, 押的是判别框架本身. 与 cross_domain 同范围 (全 6 维), 但语义不同 — meta_framework 是议题层级 (判断如何判断), cross_domain 是议题广度 (横跨多领域). anchor confidence dual_scale 也仅 meta_framework / cross_domain 议题适用 (schemas/framework-v0.2-spec.yaml §anchor_confidence_dual_scale)."
+
+    unknown:                          # 议题类型未明 — 默认 4 个常见维度
+      dimensions: [industry-trend, strategic-vision, customer-strategy, financial-strategy]
+      reason: "默认覆盖外部 / 战略 / 客户 / 经济四个最常见维度"
+
+# ─── Panel-level 配置 ───
+config:
+  min_judges: 4                       # < 4 (含 anchor) 则 process_failure 重派
+  max_judges: 8                       # tian + 6 dimension + 1 临时 add = 8
+  parallel: true                      # 评委并行打分, 互不可见
+  independence_enforced: true         # 强制评委不读其他 reviews
+
+  # auto_judge_selection 可被 CLI 覆盖
+  cli_overrides:
+    panel_add: true                   # --panel-add <judge> 临时加挂
+    panel_drop: true                  # --panel-drop <judge> 临时跳过
+    full_panel: true                  # --full-panel 强制 7 评委全上
+
+# ─── 5 镜头打分坐标 ───
+scoring_lenses:
+  - reasoning_soundness
+  - evidence_thesis_coupling
+  - counter_position_treatment
+  - falsifiability
+  - real_world_resilience
+
+# ─── 反方机制 (内化到每份 review) ───
+adversarial_mechanism:
+  type: distributed                   # 不设独立 adversary 评委
+  required_field: adversarial_view
+  schema:
+    if_thesis_wrong: <一句话, 本维度判断错了哪一环最脆弱>
+    contrary_signal_observed: <近期反向信号, 带 source>
+    base_rate_warning: <同类决策历史 base rate>
+  enforcement: skill_lint.py 阻断 commit (字段缺失或为空)
+
+# ─── Phase 5 合议规则 ───
+merge_rules:
+  dimension_weighted_mean: true       # 维度评委 5 镜头加权均分
+  anchor_tian_separate: true          # tian 心证均分单独输出, 不参与维度加权
+  anchor_delta_required: true         # 输出 dimension_weighted - anchor_tian
+  anchor_delta_threshold: 2.0         # |delta| > 2.0 飞书卡片高亮
+  preserve_individual_quotes: true    # 每位评委金句原文
+  highlight_dissent_above_3pts: true  # 维度评委之间单镜头差 > 3 标 dissent
+  collect_all_adversarial_views: true # 把所有 adversarial_view 集中展示

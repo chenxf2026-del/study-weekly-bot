@@ -1,0 +1,34 @@
+# study-weekly-ws.service — 飞书长连接收事件
+#
+# 安装:
+#   sudo cp ops/systemd/study-weekly-ws.service /etc/systemd/system/
+#   sudo sed -i "s|__ROOT__|$HOME/study-weekly-bot|g; s|__USER__|$USER|g" \
+#        /etc/systemd/system/study-weekly-ws.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now study-weekly-ws
+#
+# 无监听端口 (出站长连接), 所以 `ss -ltnp` 查不到是正常的。
+# 判活: systemctl show study-weekly-ws -p MainPID   (0 = 崩溃重启循环)
+
+[Unit]
+Description=study-weekly bot · 飞书长连接
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__ROOT__
+EnvironmentFile=__ROOT__/.env
+ExecStart=__ROOT__/.venv/bin/python __ROOT__/scripts/feishu_ws_client.py
+Restart=always
+RestartSec=10
+
+# 资源限制 (上游模板缺失, 这里补上)
+MemoryMax=1G
+CPUQuota=50%
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

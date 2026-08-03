@@ -1,0 +1,29 @@
+# study-weekly-worker.service — 消费评审队列, 跑流水线并回推飞书
+#
+# ⚠️ 加/换飞书 bot 后**必须连这个一起重启** —— 报告由 worker 回推,
+#    它要在自己的进程环境里拿到新凭据。只重启 ws 会导致
+#    「评审成功、报告发不出」且不报错。
+
+[Unit]
+Description=study-weekly bot · 评审队列 worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__ROOT__
+EnvironmentFile=__ROOT__/.env
+ExecStart=__ROOT__/.venv/bin/python __ROOT__/scripts/review_worker.py
+Restart=always
+RestartSec=10
+
+# worker 会 fork subprocess 跑流水线并调 LLM, 内存上限必须有
+MemoryMax=2G
+CPUQuota=80%
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

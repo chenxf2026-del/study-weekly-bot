@@ -1,0 +1,251 @@
+{
+  "upstream_repo": "zhanglunet/boss-vault",
+  "upstream_commit": "e111865af25cb877003637048116000b0409fab2",
+  "synced_at": "2026-08-03",
+  "note": "vendored 引擎。drifted=false 的文件只允许从上游整文件覆盖, 禁止本地修改 (make check-vendored 校验)。drifted=true 的是场景层, 本仓地盘, 可自由演进, 不做 hash 校验。带 redacted 字段的文件仍 hash 锁定, 但内容 = 上游原文 - 机密删节: ★ 从上游同步这些文件后必须重新删节, 否则会把他方真名/客户名带回本仓。",
+  "files": {
+    "scripts/_export_helpers.py": {
+      "sha256": "af08b487bed89446afe4e839b90162442c42792c9fdef8e383f36e229f476635",
+      "drifted": false,
+      "redacted": "docstring 示例里的客户名 → '某议题'"
+    },
+    "scripts/_fetchers.py": {
+      "sha256": "7d5f4cac8256ebba41fa8adeef7ebc240d6d21f88729fdd97dc9ce0c3a1c71ed",
+      "drifted": false
+    },
+    "scripts/boss_core/__init__.py": {
+      "sha256": "d940cb3bd497f54bd1446198163162dd748ab1f16a4a645206908b7bb74950a8",
+      "drifted": false
+    },
+    "scripts/boss_core/anchor_research.py": {
+      "sha256": "ca89673d098148925cae5a417a44bd2ecb693d28ed59d7f6a9db0032b9f4b4a3",
+      "drifted": false
+    },
+    "scripts/boss_core/constants.py": {
+      "sha256": "872cd65ef362f4b1fea81c56e39f5e81715d8c2cc3787660987384e5ee630239",
+      "drifted": false
+    },
+    "scripts/boss_core/docio.py": {
+      "sha256": "42f811f9ed86b55ea38570ef4b73749e096806c963dcfd48d60c6286e9e83fe9",
+      "drifted": false
+    },
+    "scripts/boss_core/errors.py": {
+      "sha256": "a7f1beccebad63cd293bf3f0907a701b609c36ca0b9fd47b1995f250cd5d21ac",
+      "drifted": false
+    },
+    "scripts/boss_core/kb/__init__.py": {
+      "sha256": "1a4b72321c0a387c8f2a1aac01e375d3dfc19c110a7bd191f9a17d7e8c3a9044",
+      "drifted": false
+    },
+    "scripts/boss_core/kb/base.py": {
+      "sha256": "85b397da6241d831c7d928d13d5e9aa0be3225753d83ce24d2f6f9acce153e5c",
+      "drifted": false
+    },
+    "scripts/boss_core/kb/hosted.py": {
+      "sha256": "482bfb6a0745de60bd7f2f39094e6e7f1b5d6389ddc36c2951bf1e1c36ab63f4",
+      "drifted": false
+    },
+    "scripts/boss_core/kb/types.py": {
+      "sha256": "32f0afcfb53b4c1d38fc33b4b3c1399a72b503aa8c10cb70e54c3262d98a3a0a",
+      "drifted": false
+    },
+    "scripts/boss_core/kb/vault_paths.py": {
+      "sha256": "ca36127d8fd9944ba1fb3aca346cd149f20f0f52b0a24bd54a150128c18aa179",
+      "drifted": false
+    },
+    "scripts/boss_core/logger.py": {
+      "sha256": "4d69007ee8a50a8a53ab2bd834a8a71376df2e3390094179ef0cbb38568510a2",
+      "drifted": false
+    },
+    "scripts/boss_core/loop/__init__.py": {
+      "sha256": "e35b2a5d20882e3b8339310861ddfb6cd88f4d7bcb88be43794dbc8ba446ae24",
+      "drifted": false
+    },
+    "scripts/boss_core/loop/capture.py": {
+      "sha256": "375e88f811145ae72f99604a7fc8be90ebf0b162b27cf9e703cf1f8f66f8d880",
+      "drifted": false
+    },
+    "scripts/boss_core/loop/metrics.py": {
+      "sha256": "c6ce9fd906888ef39a0c91d5d30f57c449a9185be15f500040445ec0f0765890",
+      "drifted": false
+    },
+    "scripts/boss_core/loop/models.py": {
+      "sha256": "fd0e04d84f3e01709dbf20a09cfca57f9b7ad6da10a605a61e9626922aa0e18a",
+      "drifted": false
+    },
+    "scripts/boss_core/loop/store.py": {
+      "sha256": "d2d6716ac0fd60f9da712c004754a20a65c2680f3faefe6e47856ee522ffd6ce",
+      "drifted": false
+    },
+    "scripts/boss_core/loop/suggestions.py": {
+      "sha256": "fde428c1e90209df5375504b3b01409f025eae3dd583632453c7bead4ca078e5",
+      "drifted": false
+    },
+    "scripts/boss_core/prompts.py": {
+      "sha256": "73a8d7cbb47d650e438beca36420d9bf84faee3b7342c40841c56111f0729800",
+      "drifted": false,
+      "redacted": "YAML 转义示例里的他方真名 → 中性称谓 (该行是喂给 LLM 的 prompt 正文)"
+    },
+    "scripts/boss_core/prose.py": {
+      "sha256": "98728361ca42b97c36cf2bf070fe3bd5de957e4b7e6c3b924828c57b77c4d4ec",
+      "drifted": false
+    },
+    "scripts/boss_core/reviews.py": {
+      "sha256": "98b144d50760bbe5587e27b50e2b75f876f2073058052ce2f634c5cb0b29ad15",
+      "drifted": false
+    },
+    "scripts/boss_core/scoring.py": {
+      "sha256": "0afc4f7b2097486d0b49e1d93547e17c7b808703163f496411a2b53fb0814d29",
+      "drifted": false
+    },
+    "scripts/boss_core/wiki_query.py": {
+      "sha256": "bb5b71fa42e9d8d2706accc8432854548bdb7273a59773c0bf1b0a78474aa721",
+      "drifted": false
+    },
+    "scripts/cadre_weekly_output.py": {
+      "sha256": "538bd107646f397b2b2666fd5a33eda5ebe4244429f96a4e4a981ea5a37ec60e",
+      "drifted": false
+    },
+    "scripts/classify_failure.py": {
+      "sha256": "0f7865f11df5a38491eeee229f409777b9627b497a230815965f746145677e2f",
+      "drifted": false
+    },
+    "scripts/data_freshness.py": {
+      "sha256": "61df200c5a1a387583e15858d806de05a9924905382d9ba07fd690f8a7ba41c5",
+      "drifted": false
+    },
+    "scripts/desensitize.py": {
+      "sha256": "e08ba46d21bba9afd1818223f0d9ccebb1cc72905848afab328cab18732c0291",
+      "drifted": false,
+      "redacted": "锚点真名正则 → config/redact_local.yaml 的 mask_names"
+    },
+    "scripts/feishu_admin.py": {
+      "sha256": "81f5a44215b4d0b9c0986399a176579bf97a002e9cfad73da554cae2ff51c2c2",
+      "drifted": false,
+      "redacted": "注释里的上游分身场景人格名 → 中性表述"
+    },
+    "scripts/feishu_client.py": {
+      "sha256": "6258620d4f47cdf517002d44fc67149c125bcd28bf92a6ffa0791607c59ed4de",
+      "drifted": false
+    },
+    "scripts/feishu_docio.py": {
+      "sha256": "633a8d6badb6dddfe2b863b7d498cae4a1b42ab0e3dd1b7ecd1b5b55cfa30707",
+      "drifted": false
+    },
+    "scripts/feishu_events.py": {
+      "sha256": "54d317d1b2e492747803df74bfbccb4c08259b3e29c7abcddc324f2680e6818e",
+      "drifted": true
+    },
+    "scripts/feishu_notify.py": {
+      "sha256": "7cf8bf5198f631b927b70ab1884bfaa8700dd37618b2cb92d5f9fa5c6b5ca81e",
+      "drifted": false,
+      "redacted": "注释里的他方称谓 → 中性表述"
+    },
+    "scripts/feishu_ws_client.py": {
+      "sha256": "43a53b8f834ed3f92066d3f266ccc4e5abf99c8b05115538c6caf0546d3029c9",
+      "drifted": false,
+      "redacted": "注释里的上游分身人格名 → 中性表述"
+    },
+    "scripts/fix_review_yaml.py": {
+      "sha256": "e6a7d8d149923a7099edd03fe2f166b4f5ce17efe2eb408ddf204cde4b6b2dee",
+      "drifted": false
+    },
+    "scripts/framework_compare.py": {
+      "sha256": "cd34743d423af19a4857dbc662bb0a4a647961b3545ac3fd16732c1a77b90a43",
+      "drifted": false
+    },
+    "scripts/gen_study_weekly_summary.py": {
+      "sha256": "5eb28053f2b28f8d9740af7cffe6a6d2b5d8db509e70c21f38915b928a99804d",
+      "drifted": true
+    },
+    "scripts/llm_client.py": {
+      "sha256": "103073a59db3f89f44d711a55c3469e642a46843168e498a95fb2f308bd58bd0",
+      "drifted": false,
+      "redacted": "注释里的上游分身场景人格名 → 中性表述"
+    },
+    "scripts/llm_failover.py": {
+      "sha256": "bcfccac4ac011fd271d791f610e60abf0ded644894a395ca417b96b9262495f3",
+      "drifted": false
+    },
+    "scripts/llm_switch.py": {
+      "sha256": "367ebf0b85490141473e692a447fea5a06b250c5cb8e174de1c205cd7b81b14b",
+      "drifted": false,
+      "redacted": "CLI 输出里的上游分身人格名 → 中性表述"
+    },
+    "scripts/model_defaults.py": {
+      "sha256": "d91ddcf365f5d9933735f897587ac399e1fb72efd7a3555b539b1c45766029e1",
+      "drifted": false,
+      "redacted": "注释里的上游过滤器代号 → 删除"
+    },
+    "scripts/panel_loader.py": {
+      "sha256": "c495e20dddb27558629d64ca966776007a8f6c45af6a93d4241be70084e95122",
+      "drifted": false
+    },
+    "scripts/redact_check.py": {
+      "sha256": "f7c2fd8f5aa5381fed01fc88d3dece0284f6ad7aa48ff2ba4a85c11d608080cf",
+      "drifted": false,
+      "redacted": "移除上游写死的锚点真名/团队真名/客户名 denylist, 改由 config/redact_local.yaml 提供; 结构性规则原样保留"
+    },
+    "scripts/render_op2_report_html.py": {
+      "sha256": "ed795fa432b7605ad68e9188c08ce6817725733d71da7f833722ac869fb5da82",
+      "drifted": false,
+      "redacted": "docstring 示例里的他方真名 → '<真名>'"
+    },
+    "scripts/render_review_formats.py": {
+      "sha256": "1b75fb8a9877dbc3c3e9760c81a2eff80bed489cf1f099e658ef1211b7c87564",
+      "drifted": false
+    },
+    "scripts/report_builder.py": {
+      "sha256": "4b31cdd4803fd7cbc331914ec5ba24316228e47b9be08d8168dc014b89fb89cb",
+      "drifted": false
+    },
+    "scripts/review_access.py": {
+      "sha256": "e72d9237b5b9385c0c8260d7d11e471a6d041cbc0ff4c8d9521ffa002dbca221",
+      "drifted": false
+    },
+    "scripts/review_batch.py": {
+      "sha256": "0d38670a655d587e22cfe6ffdece6c386d99768d8c6ea8a331842219cc0dd123",
+      "drifted": false
+    },
+    "scripts/review_queue.py": {
+      "sha256": "26aa2abec8e217aa9b1cc47f01ffa2bc49732e182830a16ae9ba593b383fba97",
+      "drifted": false
+    },
+    "scripts/review_worker.py": {
+      "sha256": "4c3f1d5184e4955e4b7912cdc9b43c9a34151e877c762cbe8e0244312755efcc",
+      "drifted": true
+    },
+    "scripts/run_pipeline_local.py": {
+      "sha256": "af54fdb169044336e4ee357bcfe73103e30d5b05aca3265d23b452f5a98dc727",
+      "drifted": false,
+      "redacted": "上游 anchor raw 目录路径 (含人格名) → 通用占位; 去掉一条本仓不存在的扫描路径"
+    },
+    "scripts/scene_loader.py": {
+      "sha256": "560599b9e87bec783d515a5bf0d997032e53c6feebc44d5daa434b0753ca38d1",
+      "drifted": false,
+      "redacted": "persona 场景注释里的人格名 + 上游 PRD 路径 → 中性表述"
+    },
+    "scripts/skill_lint.py": {
+      "sha256": "40eb7de5626e01e9b2445f06de98c3bf605bdc7b31e673099188d08acb7c82ab",
+      "drifted": false
+    },
+    "scripts/smoke_e2e.py": {
+      "sha256": "82a4b42efe168812d5858caacaf7c61033b0898c5553ec8c4f93ce33e05f291a",
+      "drifted": false
+    },
+    "scripts/study_weekly_output.py": {
+      "sha256": "e7a43ed6bae3e326948b0a0c87451001875693b31b53a3b089044ecfeb51df4d",
+      "drifted": true
+    },
+    "scripts/telemetry.py": {
+      "sha256": "7016a8ce5eb08279fa2c6bcafbbd966de9912f06a52e4a785365783f4bf2cf62",
+      "drifted": false
+    }
+  },
+  "removed_from_upstream": {
+    "scripts/persona_chat.py": "上游锚点数字分身内核 —— 含他方真名与战略口径, 且本仓无 persona 场景, 运行时永不可达",
+    "scripts/persona_mode.py": "同上, persona 人格模式开关",
+    "scripts/persona_stats.py": "同上, persona 灰度观测 CLI (写入方已随分身路由一并移除)",
+    "scenes/study-weekly-reflect/judges/v8-coach/references/framework-v10-source.md": "框架早期草稿, 夹带与本机器人无关的第三方尽调材料; 运行时只 LOAD SKILL.md, 移除零影响"
+  }
+}

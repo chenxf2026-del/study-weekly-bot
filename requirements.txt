@@ -1,0 +1,35 @@
+# requirements.txt — study-weekly-bot
+#
+#   python3.11 -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# 版本与上游 boss-vault 钉死一致 —— 同步引擎时不要单独升级这里, 否则 vendored
+# 代码与依赖版本会错配。
+
+# ─── 核心 ───────────────────────────────────────────────────────
+pyyaml==6.0.1                  # scene / panel / roster YAML
+jsonschema==4.21.1             # case.json 校验 (smoke_e2e 硬依赖 schemas/case-schema.json)
+python-dateutil==2.8.2         # 周归属 / attribution 时间处理
+pypinyin==0.55.0               # 中文姓名 → slug
+
+# ─── LLM SDK (二选一即可用, 两个都装免切换时报 ImportError) ────────
+anthropic==0.21.0              # BOSS_LLM_PROVIDER=anthropic / anthropic-compatible
+openai==1.55.3                 # BOSS_LLM_PROVIDER=openai-compatible (Kimi / 智谱 / 自建网关)
+
+# ─── 飞书长连接 (出站, 不需公网入站/备案) ─────────────────────────
+lark-oapi==1.4.6
+
+# ─── 被评文档解析 (成员多发 PDF / Word) ──────────────────────────
+pypdf==4.3.1
+python-docx==1.1.2
+python-pptx==1.0.2             # run_pipeline_local._read_doc_text 会 import
+
+# ─── 报告 md → html (飞书多格式投递) ─────────────────────────────
+markdown==3.7
+
+# ─── 网络与重试 ─────────────────────────────────────────────────
+httpx==0.27.0
+tenacity==8.2.3
+
+# ─── 测试 ───────────────────────────────────────────────────────
+pytest==8.0.0
+pytest-timeout==2.2.0

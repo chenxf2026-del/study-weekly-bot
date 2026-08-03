@@ -1,0 +1,29 @@
+# 学习小组花名册 (study-weekly-reflect · PRD §4.3 F3)
+# git tracked (私有仓): 仅姓名/open_id/岗位一句话, 非敏感映射。
+# open_id 待成员首次在群里发言后由管理员补填 (留空 = 靠文档标题含姓名识别)。
+# position 一句话喂给 v8-coach 做「岗位价值判断」的锚。
+members:
+  - name: 宋鹏飞
+    open_id: ""
+    position: ""
+  - name: 胡婷婷
+    open_id: ""
+    position: ""
+  - name: 赵然
+    open_id: ""
+    position: ""
+  - name: 张路
+    open_id: ""
+    position: ""
+  - name: 何坚白
+    open_id: ""
+    position: ""
+  - name: 边彦宁
+    open_id: ""
+    position: ""
+  - name: 王晓园
+    open_id: ""
+    position: ""
+  - name: 陈晓雪
+    open_id: ""
+    position: ""

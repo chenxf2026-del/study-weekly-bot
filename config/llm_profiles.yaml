@@ -1,0 +1,115 @@
+# config/llm_profiles.yaml — LLM provider 切换 profile (无密钥)
+#
+# 一条命令切换主评审流水线用的 LLM。密钥与私有端点都留在 .env (gitignored),
+# 本文件只存"指向哪个 key 变量 / 哪个端点变量", 可安全入库。
+#
+# 用法:
+#   python3 scripts/llm_switch.py list           # 列出 profile + 当前激活
+#   python3 scripts/llm_switch.py show            # 看当前 BOSS_LLM_* (key 打码)
+#   python3 scripts/llm_switch.py use <name>      # 切换 → 改写 .env → 提示重启 worker
+#
+# 字段:
+#   provider     anthropic | anthropic-compatible | openai-compatible | codex-cli | kimi-cli
+#   base_url     端点; 留空 = 用 provider 默认; 写 ${VAR} 则激活时从 .env 读 (私有端点不入库)
+#   model_fast   Phase 1-3 模型 (起草 / 调研 / 合成)
+#   model_deep   Phase 4-5 模型 (评委打分 / 合议)
+#   api_key_env  激活时从 .env 读该变量的值, 写入 BOSS_LLM_API_KEY
+#                (两个 openai-compatible 端点无法靠 fallback 区分, 必须显式落 key)
+#
+# 切换只动 .env 的 BOSS_LLM_* 5 行 + 末尾激活标记, 其余行不动。切完重启 boss-review-worker 生效。
+
+profiles:
+  glm:
+    provider: openai-compatible
+    base_url: https://open.bigmodel.cn/api/coding/paas/v4
+    # 2026-07: 网关已挂 glm-5 家族 (glm-5 / glm-5-turbo / glm-5.1 / glm-5.2, 见 llm models glm)。
+    # 升到 glm-5 (快档用 turbo, 深档用最新 5.2); 备选切到 glm 时即用这两个。旧 glm-4.5/4.6 仍可跑。
+    model_fast: glm-5-turbo
+    model_deep: glm-5.2
+    api_key_env: GLM_API_KEY
+
+  # 你的自建/代理 GPT 端点: 把真实地址写到 .env 的 GPT_BASE_URL, 这里只引用 (不入库)
+  gpt:
+    provider: openai-compatible
+    base_url: ${GPT_BASE_URL}
+    model_fast: gpt-4o-mini
+    model_deep: gpt-4o
+    api_key_env: OPENAI_API_KEY
+
+  # OpenAI 官方端点 (公网直连)
+  gpt-openai:
+    provider: openai-compatible
+    base_url: https://api.openai.com/v1
+    model_fast: gpt-4o-mini
+    model_deep: gpt-4o
+    api_key_env: OPENAI_API_KEY
+
+  claude:
+    provider: anthropic
+    base_url: ""
+    model_fast: claude-sonnet-4-6
+    model_deep: claude-opus-4-8      # T2: 升 4.8, 与 aigw 网关对齐 (anthropic 直连端点)
+    api_key_env: ANTHROPIC_API_KEY
+
+  # asiainfo aigw 网关 (OpenAI 兼容; 与 chatapi.asiainfo-sec.com 是不同网关)。
+  # 真实地址与 key 只写 .env (AIGW_BASE_URL=https://aigw.asiainfo.com/v1 · AIGW_API_KEY=sk-...),
+  # 本文件只引用, 不入库。可用模型: wangsu/gpt-5.5 · wangsu/anthropic.claude-opus-4-8。
+  # 默认两档都用 claude-opus-4-8 (指令遵循稳, 规避 gpt-5.x 解析/schema 跑偏);
+  # 若要省成本可把 model_fast 换成 wangsu/gpt-5.5 (解析容错网已兜底, 但稳定性略降)。
+  # 2026-07-02: 早间 aigw litellm 上游 request_timeout=60s, claude-opus 长 review 常 >60s → 408;
+  #   当日晚运维已调大超时, 探针实测 Opus max_tokens=4096 用时 85s 正常返回, ✅ 通道恢复。
+  #   注意单次 Opus 调用 ~85s, 整场评审比 glm 慢 (25-40 分钟); 嫌慢可把 model_fast 换 wangsu/gpt-5.5。
+  #   若再见 408 Timeout passed=60.0 说明网关超时被回退。详见 m5-vm-liaison-guide §15。
+  aigw:
+    provider: openai-compatible
+    base_url: ${AIGW_BASE_URL}
+    model_fast: wangsu/anthropic.claude-opus-4-8
+    model_deep: wangsu/anthropic.claude-opus-4-8
+    api_key_env: AIGW_API_KEY
+
+  # asiainfo-sec 多厂商网关 (与 aigw.asiainfo.com 不同网关/域; 上游含 Doubao/DeepSeek/GPT-5.x/
+  # GLM/Kimi/MiniMax/Qwen 等, 见 `llm models chatapi`)。作 failover 备选 1 —— 模型上游
+  # (DeepSeek) 异于 aigw(Claude)/glm(智谱), 不同故障域。deep 选 deepseek-v4-pro (强推理 + 守
+  # schema; gpt-5.x 偶尔解析跑偏, 故不选它), fast 选 deepseek-v4-flash。
+  # key (CHATAPI_API_KEY) 只写 .env, 本文件只引用不入库。
+  chatapi:
+    provider: openai-compatible
+    base_url: https://chatapi.asiainfo-sec.com/v1
+    model_fast: deepseek-v4-flash
+    model_deep: deepseek-v4-pro
+    api_key_env: CHATAPI_API_KEY
+
+
+# ═════ 跨 profile 故障切换链 (llm_failover.py · PRD prd-llm-failover · P1 接线) ═════
+# 首选端点 (当前 .env 激活的 profile) 遇**端点级**故障时, 按下面顺序自动试备选,
+# 每个备选用它**自己的**模型名与端点。per-call 内存态, 绝不写 .env
+# (手工 llm_switch use <profile> 仍是唯一"首选"真相源)。
+#
+# 端点级故障 = 触发切换: 429 限流 / 5xx / 超时 / 网关 WAF 拦截页 / 401·403 鉴权失效。
+#   (请求内容问题如 400 / 非法模型名 换端点无用, 不切 — 原样抛。)
+#
+# 开关 (在 .env, 默认关 → 未开时调用路径与接线前 bit 级等价):
+#   BOSS_LLM_FAILOVER=1                       # 1/true/on 开; 默认 0 关
+#   BOSS_LLM_FAILOVER_COOLDOWN_SEC=300        # 端点级失败后冷却 (冷却中的 profile 被跳过)
+#   BOSS_LLM_FAILOVER_AUTH_COOLDOWN_SEC=1800  # 鉴权失败长冷却 (密钥失效不会自愈, 冷却更久)
+#
+# chain 由 resolve_chain 解析, 下列情况**自动降为跳过并记原因** (无需手工剔除):
+#   · 与当前首选同名 (不会自己切自己) · 链内重复
+#   · 缺 key / base_url 未配 (如 ${GPT_BASE_URL}/${AIGW_BASE_URL} 未设) · CLI 型 provider · 冷却中
+# 所以这里放心把所有 API 型 profile 都列上: 没配好的会被自动跳过, 不连坐首选。
+#
+# ⚠ 触发 failover 会切到备选 profile 的模型 (如 glm-4.6 → claude-opus-4-8); 报告
+#   frontmatter 打 failover: true + models_used 标记 (可审计, 见 llm_failover.session_summary)。
+#
+# 顺序 = 优先级。只留**现网确认可用**的端点: aigw (首选) → chatapi (备选 1) → glm (备选 2)。
+# 首选挂掉时切到不同故障域的端点 (如 aigw 被自家 WAF 拦 → 落到 asiainfo-sec 的 chatapi)。
+#
+# 2026-07: 链 = [aigw, chatapi, glm]。三路不同故障域: aigw(自家 Claude 网关) /
+#   chatapi(asiainfo-sec 多厂商网关, deepseek-v4) / glm(公网智谱)。移除过的两路 (配好再加回):
+#   · gpt-openai: 现网 OPENAI_API_KEY 是**代理 (gpt profile) 的 key**, 对官方 api.openai.com
+#     鉴权失败 (curl 实测 /v1/models 与 gpt-4o 均 HTTP 401 invalid_api_key) → 死备选。
+#     恢复 openai 独立一路: .env 配**真** OpenAI key 后把 gpt-openai 加回链。
+#   · claude: 未配 ANTHROPIC_API_KEY, 暂移除。配上 key 后加回 → anthropic 直连独立备选。
+#   · gpt profile = ${GPT_BASE_URL} 代理, 与 aigw 可能同故障域, 不入链; 需要可自行加。
+failover:
+  chain: [aigw, chatapi, glm]

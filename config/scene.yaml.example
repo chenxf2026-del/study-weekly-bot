@@ -1,0 +1,42 @@
+# config/scene.yaml.example — 多场景评委体系 scene.yaml 模板
+# (PRD: docs/internal/prd-multi-scene-v1.md · v1.1)
+#
+# 真实 scene 配置在 scenes/<slug>/scene.yaml (sage-wiki ignore, 不入 Wiki)。
+# 本文件是 add_scene.py 与人工新建 scene 的字段说明模板。
+#
+# 一个 scene = 一个部署单元 = 一个飞书机器人入口。
+# 共用同一 _wiki/ 知识库 + 同一锚点心智模型, 但评委编组 / bot / 白名单 / 脱敏独立。
+
+# ─── 标识 (必填) ───
+name: op2-company                       # ★ slug, 须与目录名一致 (^[a-z][a-z0-9-]{1,30}$)
+display_name: 公司级 OP2 评审            # ★ 飞书卡片 / 报告抬头展示名
+description: |
+  面向公司级 OP2 经营规划评审。定方向、定目标、定边界、定牵引机制。
+  评审重点: 公司级判断是否成立, 能否牵引 BG 和专项承接。
+
+# ─── 评委 panel (必填) ───
+panel: op2-company                      # ★ 优先用 scenes/<slug>/panel.yaml; 回退 panels/<panel>.yaml
+
+# ─── 飞书 bot 绑定 (可选; 缺则 scene 仅 CLI 可用, 不接 bot) ───
+feishu:
+  app_id_env: LARK_APP_ID_OP2_COMPANY       # 从环境变量读 app_id (不明文入 git)
+  app_secret_env: LARK_APP_SECRET_OP2_COMPANY
+  bot_name: "OP2 公司级评审助手"
+
+# ─── 访问控制 (有默认值) ───
+access:
+  whitelist_env: OP2_COMPANY_WHITELIST   # 环境变量名, 值为 JSON list of ou_ user_id
+  quota_per_user_daily: 5                # 每人每日提交上限
+  require_group: false                   # true = 只响应群消息, 不处理单聊
+
+# ─── 报告配置 (有默认值) ───
+report:
+  brand_prefix: op2-company              # 报告 brand = <prefix>-<submitter>-<seq>; 缺省 = name
+  anchor_judge: tian                     # null = 无锚点 (竞赛 Workshop 场景必须 null)
+  redact_review: false                   # 公司内部评审放开脱敏; 出公网前仍过 redact_check
+  show_scores_publicly: false            # true = 竞赛排名展示模式
+  trusted_groups: []                     # 可见报告的飞书群 chat_id
+
+# ─── 场景类型 (有默认值) ───
+scene_type: review                       # review | competition | judgement
+                                         # competition 强约束 anchor_judge: null

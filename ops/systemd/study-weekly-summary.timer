@@ -1,0 +1,13 @@
+# 周一 20:00 出上周汇总。
+# Persistent=true —— 若到点时机器是关的, 开机后补跑, 不静默丢一周
+# (上游用的是裸 cron, 没有这个语义)。
+
+[Unit]
+Description=study-weekly bot · 周汇总定时
+
+[Timer]
+OnCalendar=Mon *-*-* 20:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

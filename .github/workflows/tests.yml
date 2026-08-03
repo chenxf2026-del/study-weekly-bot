@@ -1,0 +1,34 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: 装依赖
+        run: pip install -r requirements.txt
+
+      - name: 单测
+        run: PYTHONPATH=scripts python -m pytest tests/unit -q
+
+      # 引擎完整性 + 机密边界是**独立的门**: 上一步跑挂了也要看到这两条的结论,
+      # 所以用 if: always()。它们红的含义完全不同 —— 不是"代码有 bug",
+      # 而是"有人改了不该改的 / 有越权内容混进来了"。
+      - name: vendored 引擎未被本地改动
+        if: always()
+        run: python scripts/check_vendored.py
+
+      - name: 机密边界 + 凭据零入库
+        if: always()
+        run: PYTHONPATH=scripts python -m pytest tests/unit/test_smoke_strip.py -q

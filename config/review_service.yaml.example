@@ -1,0 +1,48 @@
+# config/review_service.yaml — 评审服务的全局兜底配置
+#
+#   cp config/review_service.yaml.example config/review_service.yaml
+#
+# 真实文件 gitignored。**必须存在**, 否则 worker 读不到配置按 fail-close 处理。
+#
+# ⚠️ 与 scenes/study-weekly-reflect/scene.yaml 的分工:
+#   访问控制 (白名单 / 配额 / 群开放 / 标题关键词) **以 scene.yaml 为准** ——
+#   机器人跑起来时总带 scene_slug, 走的是 scene 那套。本文件的 whitelist / quota
+#   只在「没有 scene」的裸调用下才生效, 平时用不上。
+#   本文件真正被 worker 读的是三项: callback / redact_review / defaults。
+
+# ─── 兜底白名单与配额 (机器人路径不走这里, 见上方说明) ───
+whitelist: []
+quota:
+  per_user_daily: 30
+
+# ─── 流水线默认参数 ───
+defaults:
+  panel: default
+  llm_provider: anthropic     # 与 .env 的 BOSS_LLM_PROVIDER 保持一致
+  brand_prefix: study-weekly  # 产出目录名 = <prefix>-<提交人短址>-<序号>
+
+# ─── 完成回调 ───
+# log    = 只写日志 (worker 仍会把报告回推飞书; 这项管的是**额外**回调)
+# feishu = 另发一条完成通知
+callback: log
+
+# ─── 出站脱敏闸是否生效 ───
+# true  (默认, fail-close) = 回推的卡片/附件先过 scripts/redact_check.py, 命中即不发原文
+# false = 本服务内放开
+#
+# 本机器人的收件人就是被诊断周报的作者本人 (或全内部的学习小组群), 报告内容本就来自
+# 他自己的周报 —— 即便如此, 结构性规则 (精确财务数字 / lark:// 深链) 仍值得拦,
+# 故建议保持 true。
+#
+# ⚠️ 若群里有外部人员, **务必**保持 true, 并在 config/redact_local.yaml 补本地敏感词。
+redact_review: true
+
+# 群投递脱敏。不配则跟随 redact_review。
+#   trusted_groups: [oc_...]  → 仅列出的群放开 (精确, 推荐)
+#   redact_group: true        → 所有群恒强制脱敏 (外部/混合群用)
+trusted_groups: []
+# redact_group: true
+
+# 月预算软阈值 (仅记录, 不阻断)
+budget:
+  monthly_usd_limit: 100

@@ -1,0 +1,9 @@
+[Unit]
+Description=study-weekly bot · 周汇总报告 (oneshot)
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__ROOT__
+EnvironmentFile=__ROOT__/.env
+ExecStart=__ROOT__/.venv/bin/python __ROOT__/scripts/gen_study_weekly_summary.py

@@ -1,0 +1,583 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.example.org/boss/case-v3.json",
+  "title": "boss 判断 Case Object (ATELIER 6 字段)",
+  "description": "一次锚点判断的完整数据载体。每个判断对应一个 case.json, 存于 cases/<case-id>/。",
+  "type": "object",
+  "required": [
+    "case_id",
+    "brand_slug",
+    "skill_used",
+    "created_at",
+    "sensitivity",
+    "context",
+    "attribution"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^C-\\d{4}-\\d{4}$",
+      "description": "全局唯一编号, 格式 C-YYYY-NNNN"
+    },
+    "brand_slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "议题标识, 与 reports/<brand_slug>/ 一致, 小写英文短横线"
+    },
+    "skill_used": {
+      "type": "string",
+      "description": "处理本 case 的 Skill name, 通常为 tian-judgement-orchestrator"
+    },
+    "skill_version": {
+      "type": "string",
+      "description": "Skill 版本 (取自 Git commit 或 SKILL.md frontmatter)"
+    },
+    "parent_case_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "EVOLUTION 模式时引用上版 case_id"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "FRESH",
+        "EVOLUTION",
+        "REVIEW",
+        "written-not-dispatched"
+      ],
+      "default": "FRESH",
+      "description": "判断模式: FRESH 新议题 / EVOLUTION v1+ 复判 / REVIEW 评议现成方案 doc (ADR-007)"
+    },
+    "review_doc_path": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "REVIEW 模式: 被评议的方案文档路径 (相对 vault root). 其他模式为 null"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "panel": {
+      "type": "string",
+      "description": "本 case 使用的 panel name (写到 reports/<brand>/panel.yaml)"
+    },
+    "judges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "评委 slug 列表 (与 panel 一致)"
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "tian_only"
+      ],
+      "description": "敏感等级, 默认 confidential"
+    },
+    "context": {
+      "type": "object",
+      "description": "ATELIER 字段 1: 议题触发与边界",
+      "required": [
+        "trigger_event",
+        "time_window",
+        "constraints"
+      ],
+      "properties": {
+        "topic": {
+          "type": "string",
+          "description": "议题一句话定位"
+        },
+        "trigger_event": {
+          "type": "object",
+          "required": [
+            "named_event",
+            "occurred_at",
+            "source_url"
+          ],
+          "properties": {
+            "named_event": {
+              "type": "string",
+              "description": "具名事件 (会议名/客户名/具体动作), 不能写抽象状态"
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "source_url": {
+              "type": "string",
+              "description": "可回链来源 (lark:// / feishu:// / Wiki link)"
+            }
+          }
+        },
+        "time_window": {
+          "type": "object",
+          "required": [
+            "deadline",
+            "external_anchor"
+          ],
+          "properties": {
+            "deadline": {
+              "type": "string",
+              "format": "date"
+            },
+            "external_anchor": {
+              "type": "string",
+              "description": "外部催化窗口 (董事会/财报日/行业大会)"
+            }
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "minItems": 3,
+          "description": "至少 3 条约束, 涵盖法律/股权/资源三类各 1 条",
+          "items": {
+            "type": "object",
+            "required": [
+              "type",
+              "description"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "legal",
+                  "equity",
+                  "agreement",
+                  "resource",
+                  "timing",
+                  "evidence",
+                  "scope",
+                  "phrasing",
+                  "sensitivity",
+                  "other"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "data_valid_until": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          }
+        },
+        "background_from_wiki": {
+          "type": "array",
+          "description": "Wiki 引用 (markdown link 列表)",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "variables": {
+      "type": "array",
+      "description": "ATELIER 字段 2: 关键变量与翻转阈值, 5-7 个",
+      "minItems": 3,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "current_value",
+          "flip_threshold",
+          "weight",
+          "data_source"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "legal",
+              "customer",
+              "competitor",
+              "internal",
+              "macro",
+              "external",
+              "individual",
+              "framework",
+              "spec",
+              "other"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "generated",
+              "from-doc",
+              "wiki-verify"
+            ],
+            "default": "generated",
+            "description": "variable 来源 (ADR-007 inv-2): generated=Phase 1 LLM 出 / from-doc=REVIEW doc parser 提取 / wiki-verify=Phase 2 verification 抓出"
+          },
+          "current_value": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "flip_threshold": {
+            "type": "object",
+            "required": [
+              "value",
+              "direction"
+            ],
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "number"
+                ]
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "above",
+                  "below",
+                  "eq"
+                ]
+              }
+            }
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "data_source": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reasoning_trace": {
+      "type": "object",
+      "description": "ATELIER 字段 3: 推理跳步",
+      "required": [
+        "steps",
+        "jumps"
+      ],
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jumps": {
+          "type": "array",
+          "description": "显式标注的跳步",
+          "items": {
+            "type": "object",
+            "required": [
+              "type",
+              "description"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "weight_jump",
+                  "timing_jump",
+                  "exclusion_jump",
+                  "framework_jump",
+                  "evidence_jump"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "description": "源头, 例: 'anchor_quote_YYYY-MM-DD', 'anchor_inference'"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "evidences": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "statement",
+          "source_url",
+          "verified_at"
+        ],
+        "properties": {
+          "statement": {
+            "type": "string"
+          },
+          "source_url": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "interview",
+              "document",
+              "data",
+              "external_article",
+              "wiki",
+              "research_report",
+              "prior_judgement"
+            ]
+          },
+          "verified_at": {
+            "type": "string",
+            "format": "date"
+          },
+          "data_valid_until": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    },
+    "theses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "statement",
+          "counter_statement"
+        ],
+        "properties": {
+          "statement": {
+            "type": "string",
+            "description": "本判断的核心主张"
+          },
+          "counter_statement": {
+            "type": "string",
+            "description": "独立的反方命题 (不是简单否命题)"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "description": "evidences 数组的 index"
+            }
+          }
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "actions",
+        "owner",
+        "deadline"
+      ],
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "description",
+              "owner",
+              "deadline",
+              "machine_verifiable_done"
+            ],
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "owner": {
+                "type": "string",
+                "description": "具体人名, 不能写部门"
+              },
+              "deadline": {
+                "type": "string",
+                "format": "date"
+              },
+              "machine_verifiable_done": {
+                "type": "string",
+                "description": "90 天后另一个人能机械判断完成/未完成的描述"
+              },
+              "trigger_conditions": {
+                "type": "object",
+                "properties": {
+                  "escalate_if": {
+                    "type": "string"
+                  },
+                  "cancel_if": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "owner": {
+          "type": "string",
+          "description": "整体决策 owner"
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "required": [
+        "checkpoints"
+      ],
+      "properties": {
+        "checkpoints": {
+          "type": "array",
+          "minItems": 3,
+          "description": "至少含 30/90/365 三个时间窗的 checkpoint",
+          "items": {
+            "type": "object",
+            "required": [
+              "horizon_days",
+              "check_at",
+              "falsification_metric",
+              "expected_signal",
+              "status"
+            ],
+            "properties": {
+              "horizon_days": {
+                "type": "integer",
+                "enum": [
+                  30,
+                  90,
+                  365
+                ]
+              },
+              "check_at": {
+                "type": "string",
+                "format": "date"
+              },
+              "falsification_metric": {
+                "type": "string",
+                "description": "可独立观测的信号"
+              },
+              "expected_signal": {
+                "type": "string"
+              },
+              "data_source": {
+                "type": "string",
+                "enum": [
+                  "marsdata",
+                  "feishu",
+                  "websearch",
+                  "manual"
+                ]
+              },
+              "metric_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "可选 · data_source=marsdata 时的指标定位 ID (marsdata REST/MCP 用其拉数值)。其他 data_source 留空。"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "confirmed",
+                  "partial",
+                  "falsified",
+                  "skipped"
+                ]
+              },
+              "actual_signal": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "verified_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "verifier_confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "verifier_reasoning": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "failure_cards": {
+      "type": "array",
+      "description": "如果本 case 触发了 FC, 在这里列出",
+      "items": {
+        "type": "string",
+        "pattern": "^FC-\\d{4}-\\d{4}$"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "enum": [
+              "REVIEW",
+              "written-not-dispatched"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "then": {
+        "description": "REVIEW / written-not-dispatched 评议现成 doc / Lead 写不跑, ATELIER 5 字段豁免"
+      },
+      "else": {
+        "required": [
+          "case_id",
+          "brand_slug",
+          "skill_used",
+          "created_at",
+          "sensitivity",
+          "context",
+          "variables",
+          "reasoning_trace",
+          "evidences",
+          "theses",
+          "decision",
+          "attribution"
+        ],
+        "description": "FRESH / EVOLUTION 模式要 ATELIER 5 字段"
+      }
+    }
+  ]
+}

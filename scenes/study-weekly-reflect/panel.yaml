@@ -1,0 +1,56 @@
+# scenes/study-weekly-reflect/panel.yaml — 学习小组周报自省 panel (v10 单教练)
+# (PRD: docs/internal/prd-study-weekly-reflect.md §3-§4 · 框架源: 雅总《周报自省式诊断》v10/v7.21 第三版)
+#
+# 设计 (PRD §1.3): 不做多评委合议 —— 是一位「周报写作教练」的单视角诊断
+# (框架已内嵌 5 项反向检视, 一维一项 · v7.22 各 1-2 分 · 上限 10), 单份 1 次 LLM 调用, 口径与雅总提示词严格一致。
+#
+# 定级: 真实等级是 v7.22 五档 (90-100 A / 80-89 B+ / 70-79 B / 60-69 C / <60 C-),
+# 由 study_weekly_output.grade_for_total() 从总分机械归档 (总分 = 基础分 − 反向扣分)。
+# 下面 score_threshold 仅为 scene loader 形式要求 (rewrite=60 对应 C- 档"建议重写",
+# revise=80 对应 <80 有提升空间), 呈现层不用它分级。
+
+name: study-weekly-reflect
+extends: panels/default.yaml
+
+scoring_mode: sum_max_score
+
+score_threshold:
+  rewrite: 60
+  revise: 80
+
+# 输出: v8 六段式个人诊断 (study_weekly_output.render_personal_report 确定性渲染
+# + scores.json 区间校验)。M1 接线 review_worker 后按此路由。
+output_format: study_weekly_v8
+
+anchor_judge: null
+
+# ─── 评委编组 (仅 v8 教练, 无锚点) ───
+judges_override:
+  - slug: v8-coach
+    display_name_cn: 周报写作教练 (v8 自省式诊断)
+    judge_category: dimension
+    skill_path: scenes/study-weekly-reflect/judges/v8-coach/SKILL.md
+    always_active: true
+
+# ─── 评分维度 (v8 五维基础分, 合计 100; 反向扣分在评委输出 deductions 字段, 不在 lens) ───
+scoring_lenses_override:
+  - slug: anchor_problem
+    display_name_cn: 核心贡献证明
+    max_score: 20
+    description: 本周你证明了什么价值? 开篇 3 句话呈现本周核心贡献 (最大成果 + 最大风险/卡点 + 关键决策), 而非"我是什么岗位"
+  - slug: value_proof
+    display_name_cn: 关键进展与信号
+    max_score: 25
+    description: 本周产生了哪些关键进展、信息更新或风险信号? 阶段推进 + 信息增量 + 风险信号 + 协同与资源整合 (从"我做了什么"升级为"产生了什么进展")
+  - slug: decision_risk
+    display_name_cn: 决策推动与卡点
+    max_score: 20
+    description: 是否推动关键判断、决策需求或揭示卡点? 每个重大事项"卡在哪 / 需谁在何时做什么决定 / 若卡住 Plan B 是什么"
+  - slug: time_loop
+    display_name_cn: 时间节奏与闭环
+    max_score: 20
+    description: 关键事项处于什么阶段? 下一步节奏是否清晰? 阶段定位 + 节奏安排 + 周期间对照 ("上周关注点进展")
+  - slug: growth
+    display_name_cn: 认知更新
+    max_score: 15
+    description: 本周对项目/赛道/交易有哪些新认知或判断? 不是"参加了什么", 而是"我因此改变了什么判断 / 什么方法可复用", 带应用场景
