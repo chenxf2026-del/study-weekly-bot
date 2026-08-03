@@ -1,0 +1,105 @@
+name: release
+
+# 打 tag + 建 Release。两条触发路径:
+#   - workflow_dispatch: 手动填版本号 (tag 不存在则由本 workflow 创建)
+#   - push tags v*:      已经本地打好 tag 推上来时自动建 Release
+#
+# Release notes 从 CHANGELOG.md 里抽对应版本那一节 —— 单一事实源, 不在两处手写。
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (含 v 前缀, 如 v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: '标记为预发布'
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write        # 建 tag + 建 Release 需要
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 定版本号
+        id: v
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 发布前把 CI 那几道门再跑一遍。发版是对外交付动作, 不能只依赖
+      # "main 上次是绿的" —— 尤其机密边界那条, 交付出去就收不回来了。
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: 装依赖
+        run: pip install -r requirements.txt
+
+      - name: 单测
+        run: PYTHONPATH=scripts python -m pytest tests/unit -q
+
+      - name: vendored 引擎 + 机密边界
+        run: |
+          python scripts/check_vendored.py
+          PYTHONPATH=scripts python -m pytest tests/unit/test_smoke_strip.py -q
+
+      - name: 从 CHANGELOG 抽本版说明
+        id: notes
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          VER="${TAG#v}"
+          # 抽 "## [x.y.z]" 到下一个 "## [" 之间
+          awk -v ver="$VER" '
+            $0 ~ "^## \\[" ver "\\]" { on=1; next }
+            on && /^## \[/          { exit }
+            on                      { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md 里没有 [$VER] 这一节 —— 先补 CHANGELOG 再发版"
+            exit 1
+          fi
+          echo "抽到 $(wc -l < notes.md) 行说明"
+
+      - name: 打 tag (dispatch 路径且 tag 尚不存在时)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "tag $TAG 已存在, 跳过创建"
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: 建 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          FLAGS=""
+          [ "${{ inputs.prerelease }}" = "true" ] && FLAGS="--prerelease"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file notes.md --title "$TAG"
+            echo "已更新既有 Release $TAG"
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file notes.md $FLAGS
+            echo "已创建 Release $TAG"
+          fi

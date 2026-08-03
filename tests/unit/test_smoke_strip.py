@@ -173,17 +173,23 @@ class TestConfidentialityBoundary:
         assert not hits, ("上游/第三方身份泄漏 (不在本仓授权范围内):\n  "
                           + "\n  ".join(hits))
 
+    # 「说明本仓不带什么」是这几个文件的**职责**, 它们必然要写下 '尽调' 二字。
+    # 只对 MNA (夹带材料) 免检; FOREIGN (他方身份) 对它们照查不误 ——
+    # 任何文件都没有正当理由写上游锚点真名, 元文档也不例外。
+    BOUNDARY_DOCS = {"CHANGELOG.md", "CLAUDE.md", "README.md", "UPSTREAM.lock",
+                     "docs/deploy.md"}
+
     def test_no_ma_dossier_material(self):
         """按**密度**判, 不按单次出现判。
 
-        「本仓不带尽调材料」这类边界说明本身就要写下 '尽调' 二字 (CLAUDE.md /
-        UPSTREAM.lock 的排除理由), 单次命中会把这些元文档也判成越权。
         真的夹带一份尽调文档长的是另一个样: 多个术语反复出现 (被排除的那份原始草稿
         是 尽调×18 / 估值×7 / 减持×3 / 代持×2 …)。故门槛设为
-        **≥2 个不同术语** 或 **同一术语 ≥3 次**。
+        **≥2 个不同术语** 或 **同一术语 ≥3 次**, 并放过 BOUNDARY_DOCS。
         """
         offenders = []
         for rel, txt in self._tracked_text_files():
+            if rel in self.BOUNDARY_DOCS:
+                continue
             found = self.MNA.findall(txt)
             if not found:
                 continue
@@ -193,6 +199,14 @@ class TestConfidentialityBoundary:
                 offenders.append(f"{rel}: {tally}")
         assert not offenders, ("夹带了并购/尽调材料 —— 与周报诊断无关, 属越权:\n  "
                                + "\n  ".join(offenders))
+
+    def test_boundary_docs_still_checked_for_identities(self):
+        """免检名单只对 MNA 生效 —— 别让它悄悄变成身份检查的后门。"""
+        for rel in self.BOUNDARY_DOCS:
+            p = ROOT / rel
+            if p.is_file():
+                assert not self.FOREIGN.search(p.read_text(encoding="utf-8")), \
+                    f"{rel} 含他方身份 —— 免检名单不覆盖这一条"
 
     def test_upstream_lock_records_exclusions(self):
         """故意不带的文件要**写下来**, 否则下次同步会被无声地拉回来。"""
