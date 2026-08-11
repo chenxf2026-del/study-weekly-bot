@@ -16,7 +16,7 @@ import gen_study_weekly_summary as g
 
 def _score_row(member, total, week="2026-W29", label="标签"):
     base = total + 5
-    return {"framework_version": "v10", "member": member, "week": week,
+    return {"framework_version": "v12.1", "member": member, "week": week,
             "scores": {"anchor_problem": 15, "value_proof": 20, "decision_risk": 15,
                        "time_loop": 15, "growth": 10},
             "deductions": [{"slug": "d2_progress", "points": 5, "reason": "x"}],
@@ -88,14 +88,14 @@ class TestCollect:
 
 class TestFlat:
     def test_flat_distribution_and_sort(self):
-        rows = [_score_row("宋鹏飞", 19), _score_row("张路", 72), _score_row("胡婷婷", 43)]
-        for r, gr in zip(rows, ["C-", "B", "C-"]):   # v7.21: 19→C-, 72→B, 43→C-
+        rows = [_score_row("宋鹏飞", 66), _score_row("张路", 78), _score_row("胡婷婷", 68)]
+        for r, gr in zip(rows, ["C", "B", "C"]):   # v12.1: 66→C, 78→B, 68→C
             r["grade"] = gr
         rows[0]["_brand"] = "study-weekly-b1"
         md = g.render_flat(rows, {"study-weekly-b1": "宋鹏飞周报.md"})
         # 等级分布 + 均分
-        assert "B×1 / C-×2" in md and "均分 45" in md
-        # 按总分升序: 宋鹏飞(19) 在张路(72) 之前
+        assert "B×1 / C×2" in md and "均分 71" in md
+        # 按总分升序: 宋鹏飞(66) 在张路(78) 之前
         assert md.index("宋鹏飞") < md.index("张路")
         assert "宋鹏飞周报" in md   # 文档名 join
 
@@ -118,8 +118,8 @@ class TestRender:
 
 class TestWorkerInjection:
     REVIEW = """---
-framework_version: v10
-scores: {anchor_problem: 15, value_proof: 18, decision_risk: 12, time_loop: 13, growth: 10}
+framework_version: v12.1
+scores: {anchor_problem: 16, value_proof: 20, decision_risk: 12, time_loop: 12, growth: 9}
 deductions: []
 core_label: 标签
 ---

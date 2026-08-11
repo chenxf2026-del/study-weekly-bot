@@ -151,7 +151,7 @@ def brand_docnames() -> dict[str, str]:
     return out
 
 
-_GRADE_ORDER = ["A", "B+", "B", "C", "C-"]   # v7.21 第三版: 取消 D, 低端由 C- 承接
+_GRADE_ORDER = ["A", "B+", "B", "C"]   # v12.1: 取消 C-, 低于 65 的原始分 clamp 到 65 归入 C
 
 
 def render_flat(rows: list[dict], docnames: dict[str, str]) -> str:
@@ -164,7 +164,7 @@ def render_flat(rows: list[dict], docnames: dict[str, str]) -> str:
     n = len(rows)
     mean = (sum(r.get("total", 0) for r in rows) / n) if n else 0
     dist_str = " / ".join(f"{g}×{dist[g]}" for g in _GRADE_ORDER if dist[g]) or "—"
-    from study_weekly_output import FRAMEWORK_LABEL as _fv   # 人面显示版本 (雅总口径 v7.22)
+    from study_weekly_output import FRAMEWORK_LABEL as _fv   # 人面显示版本 (v12)
     lines = [
         f"# 学习小组周报 · {_fv} 校准平铺表 (试评)",
         "",
@@ -182,7 +182,7 @@ def render_flat(rows: list[dict], docnames: dict[str, str]) -> str:
             f"| {r.get('grade', '')} | {r.get('core_label', '')} |")
     if not rows:
         lines.append("| — | (无报告) | | | | | |")
-    lines += ["", f"*gen_study_weekly_summary.py --flat · 按总分升序 · 框架 {_fv} (雅总定稿) · "
+    lines += ["", f"*gen_study_weekly_summary.py --flat · 按总分升序 · 框架 {_fv} · "
               "评分与等级不进任何绩效口径*", ""]
     return "\n".join(lines)
 
@@ -246,7 +246,7 @@ def render_summary(week: str, rows: list[dict], roster: list[dict]) -> str:
         missing = [m["name"] for m in roster if m["name"] not in submitted]
         lines += ["## 四、未交名单", "",
                   ("、".join(missing) if missing else "无 — 全员已交 🎉"), ""]
-    lines += ["---", "", f"*由 gen_study_weekly_summary.py 确定性生成 · 框架 {_fv} (雅总定稿) · "
+    lines += ["---", "", f"*由 gen_study_weekly_summary.py 确定性生成 · 框架 {_fv} · "
               "评分与等级不进任何绩效口径*", ""]
     return "\n".join(lines)
 

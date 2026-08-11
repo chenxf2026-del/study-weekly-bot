@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-study_weekly_output.py — 学习小组周报自省 v10 个人诊断输出 (M0 · PRD §4.2)
+study_weekly_output.py — 学习小组周报点评 v12.1 个人诊断输出 (M0 · PRD §4.2)
 
-框架源: 雅总《周报自省式诊断》v10 (v7.21) (doctrine 全文见
+框架源: 《周报点评标准 v12.1》(doctrine 全文见
 scenes/study-weekly-reflect/judges/v8-coach/SKILL.md)。
 
 设计 (与 cadre_weekly_output 同范式, 纯函数可测):
-  - DEDUCTIONS: 5 项反向扣分注册表 (一维一项, slug/标签/维度/区间/改进动作) —— v10 (v7.21 第三版) 机器可读版。
-  - validate_payload(): 区间校验 (维度分界内 / 扣分 slug 合法且在区间 / 类型正确),
-    越界即返回问题清单 —— **落盘前必须为空** (PRD G4)。
+  - DEDUCTIONS: 5 项反向扣分注册表 (一维一项, slug/标签/维度/区间/改进动作) —— 机器可读版。
+  - DIM_ALLOWED: v12.1 契约一 (离散映射) —— 每维得分只能取 5 个档位值, 校验即拦非档位分。
+  - validate_payload(): 区间校验 (维度分为合法档位 / 扣分 slug 合法且在区间 / 全局扣分上限 /
+    类型正确), 越界即返回问题清单 —— **落盘前必须为空** (PRD G4)。
   - 总分与等级不信任 LLM 算术: total/grade 一律由 compute_total()/grade_for_total()
-    从 scores/deductions 机械计算。
+    从 scores/deductions 机械计算; 总分按 v12.1 契约五/六 clamp 到 [65, 95]。
   - render_personal_report(): 六段式 md 确定性渲染。
   - load_review_payload(): 解析评委 review frontmatter → payload。
   - write_scores_json(): 结构化落盘 (周汇总 gen_study_weekly_summary 的数据源)。
@@ -33,20 +34,23 @@ from typing import Optional
 VAULT_ROOT = Path(__file__).parent.parent.resolve()
 REPORTS_DIR = VAULT_ROOT / "reports"
 
-FRAMEWORK_VERSION = "v10"        # 内部 frontmatter 契约 id (评委 SKILL.md 写 framework_version: v10)
-# 人面显示版本 = 雅总定稿口径。内部迁移计数 (v8→v10) 不该面向成员; 报告体/汇总表显示 v7.22。
-FRAMEWORK_LABEL = "v7.22"
+FRAMEWORK_VERSION = "v12.1"     # 内部 frontmatter 契约 id (评委 SKILL.md 写 framework_version: v12.1)
+# 人面显示版本 = 点评标准口径。内部契约 id 用 v12.1 与文档一致; 报告体/汇总表面向成员显示 v12。
+FRAMEWORK_LABEL = "v12"
+
+# v12.1 契约五/六 (满分封印 + 低分保护): 最终总分强制 clamp 到 [65, 95]。
+FINAL_FLOOR, FINAL_CAP = 65.0, 95.0
 
 # 单次 AI 评分的边界诚实标注 (方案 ②+③ · 2026-07-22): temp 0 实测评委仍非确定, 方差 ~±5 分,
-# 边界分 (阈值 60/70/80/90) 附近单次会翻档 (张路 W30 实测 75/76/86 横跨 B/B+)。噪声近 ±5 → 几乎
-# 任一分都贴边界, 故不做"仅近边界才提示"的条件判断, 而是常驻声明: 档位方向性参考, 价值在诊断内容。
+# 边界分 (阈值 65/70/80/90) 附近单次会翻档。噪声近 ±5 → 几乎任一分都贴边界, 故不做"仅近边界才
+# 提示"的条件判断, 而是常驻声明: 档位方向性参考, 价值在诊断内容。
 GRADE_HONESTY_NOTE = (
     "> ⚠️ 评分为**单次 AI 自省诊断**, 边界分附近约有 ±1 档波动; "
     "请以 ②–⑥ 的诊断内容为改进依据, **档位仅作方向性参考, 不作绩效**。"
 )
 
-# ─── 五维 (slug → (中文名, 满分)) · 顺序即 v10 顺序 ────────────────────
-# v10 (v7.21): 名称精细化, slug 与权重不变 (20/25/20/20/15)。
+# ─── 五维 (slug → (中文名, 满分)) · 顺序即 v12 顺序 ────────────────────
+# v12.1: 名称与权重与 v10 一致 (20/25/20/20/15)。
 DIMENSIONS: list[tuple[str, str, int]] = [
     ("anchor_problem", "核心贡献证明", 20),
     ("value_proof", "关键进展与信号", 25),
@@ -57,12 +61,18 @@ DIMENSIONS: list[tuple[str, str, int]] = [
 DIM_MAX = {slug: mx for slug, _, mx in DIMENSIONS}
 DIM_CN = {slug: cn for slug, cn, _ in DIMENSIONS}
 
-# ─── 5 项反向扣分注册表 (v10 · v7.22 §三 "合并5项, 一维一项, 各 1-2 分") ──────
+# ─── 契约一 (离散映射) · 每维得分只能取 5 个档位值 (满分×{1..5}/5) ────────
+# v12.1 5 分制映射: 1..5 档 → 满分×档/5。各维满分均可被 5 整除 (20/25/20/20/15 → 步长 4/5/4/4/3),
+# 故档位集是整数。校验层拦非档位分 (如 17), 触发上层重试 —— 杜绝插值/小数导致的评分抖动。
+DIM_ALLOWED: dict[str, set[int]] = {
+    slug: {mx // 5 * k for k in range(1, 6)} for slug, _, mx in DIMENSIONS
+}
+
+# ─── 5 项反向扣分注册表 (v12.1 §二 "5 项各 1-2 分, 一维一项") ──────────────
 # slug → (问题表述, 所属维度 slug, 扣分下限, 上限, 立即改进动作)
-# v7.22 变更 (承 v7.21 "合并 5 项、一维一项", 进一步统一并收紧区间):
-#   每维恰好 1 项, **每项 1-2 分, 合计上限 10** (v7.21 曾为 6/6/6/6/5=29; v7.22 收紧为
-#   2×5=10, 见 docx TABLE 23/27 "反向扣分合计上限为 10 分, 5 项分别对应 5 个核心考评维度")。
-#   触发即扣 (轻微 1 / 明显 2), 未触发不列入 (=0)。**区分度主要由基础分承担, 扣分只作小幅校正**。
+# v12.1 变更 (相对 v7.22): 单项区间不变 (各 1-2), 但**全局收紧** —— 触发项 ≤ 3, 累计扣分 ≤ 5
+#   (见 DEDUCTION_MAX_ITEMS / DEDUCTION_TOTAL_CAP)。触发即扣 (轻微 1 / 明显 2), 未触发不列入 (=0)。
+#   **区分度主要由基础分承担, 扣分只作小幅校正**; 全局上限确保总分不因扣分断崖 (再叠 clamp 65 封底)。
 DEDUCTIONS: dict[str, tuple[str, str, int, int, str]] = {
     "d1_value": ("价值证明不足或过度包装", "anchor_problem", 1, 2,
                  "开篇 3 句话锁定本周核心贡献: 最大成果 + 最大风险/卡点 + 关键决策; "
@@ -77,15 +87,17 @@ DEDUCTIONS: dict[str, tuple[str, str, int, int, str]] = {
                      "写\"我因此更新了什么判断 / 什么方法可复用\", 带应用场景"),
 }
 
-# ─── 等级 (v10 · v7.21 第三版 §五 · 5 档 A/B+/B/C/C-) ──────────────────
-# v7.21 第三版新增 C- (回应校准: "取消 D 后 C 档过宽 9→63 都是 C, 近乎零区分度"):
-# <60 落 C- (需较大幅度调整), 60-69 仍 C, 恢复低端区分, 且措辞仍委婉。
+# v12.1 §二 全局限制 (防抖关键): 全篇触发扣分项数 / 累计扣分, 双上限。
+DEDUCTION_MAX_ITEMS = 3      # 触发项 ≤ 3
+DEDUCTION_TOTAL_CAP = 5      # 累计扣分 ≤ 5
+
+# ─── 等级 (v12.1 §三 · 4 档 A/B+/B/C · 对应 clamp 后的 65~95) ──────────────
+# v12.1 取消 <60 的 C-: 任何低于 65 的原始分都被 clamp 托底到 65, 归入 C 档 (65-69)。
 GRADES: list[tuple[int, str, str]] = [
-    (90, "A", "完成度高, 可作为周报范本"),
-    (80, "B+", "整体较好, 仅需小改动"),
-    (70, "B", "有进一步提升空间"),
-    (60, "C", "还需要参考其他同事的周报内容, 进一步调整"),
-    (0, "C-", "需要较大幅度调整, 建议对照周报评估标准重新梳理"),
+    (90, "A", "完成度高, 有少量可优化细节"),
+    (80, "B+", "整体良好, 稍有改进空间"),
+    (70, "B", "中等水平, 建议对照标准优化"),
+    (65, "C", "核心内容有缺失, 需重点调整"),
 ]
 
 
@@ -93,7 +105,7 @@ def grade_for_total(total: float) -> str:
     for floor, grade, _ in GRADES:
         if total >= floor:
             return grade
-    return "C-"
+    return "C"
 
 
 def grade_meaning(grade: str) -> str:
@@ -128,10 +140,12 @@ class V8Payload:
 
 
 def compute_total(p: V8Payload) -> tuple[float, float, float]:
-    """→ (基础分, 扣分合计, 总分) — 机械计算, 不信任 LLM 算术。"""
+    """→ (基础分, 扣分合计, 总分) — 机械计算, 不信任 LLM 算术。
+    v12.1 契约五/六: 总分 = clamp(Σscores − Σdeductions, 65, 95)。"""
     base = sum(float(v) for v in p.scores.values())
     ded = sum(float(d.points) for d in p.deductions)
-    return base, ded, max(0.0, base - ded)
+    total = min(FINAL_CAP, max(FINAL_FLOOR, base - ded))
+    return base, ded, total
 
 
 def validate_payload(p: V8Payload) -> list[str]:
@@ -139,7 +153,7 @@ def validate_payload(p: V8Payload) -> list[str]:
     problems: list[str] = []
     if p.framework_version != FRAMEWORK_VERSION:
         problems.append(f"framework_version={p.framework_version!r} ≠ {FRAMEWORK_VERSION}")
-    # 5 维齐全且界内
+    # 5 维齐全且为合法档位值 (v12.1 契约一: 离散映射, 非档位分即拦)
     for slug, cn, mx in DIMENSIONS:
         if slug not in p.scores:
             problems.append(f"缺维度分: {cn} ({slug})")
@@ -149,13 +163,15 @@ def validate_payload(p: V8Payload) -> list[str]:
         except (TypeError, ValueError):
             problems.append(f"维度分非数值: {slug}={p.scores[slug]!r}")
             continue
-        if not (0 <= v <= mx):
-            problems.append(f"维度分越界: {cn} {v} ∉ [0, {mx}]")
+        if v not in DIM_ALLOWED[slug]:
+            allowed = sorted(DIM_ALLOWED[slug])
+            problems.append(f"维度分非档位值: {cn} {v:g} ∉ {allowed}")
     for slug in p.scores:
         if slug not in DIM_MAX:
             problems.append(f"未知维度 slug: {slug}")
-    # 扣分项合法 + 区间内 + 不重复
+    # 扣分项合法 + 单项区间内 + 不重复
     seen = set()
+    ded_sum = 0.0
     for d in p.deductions:
         reg = DEDUCTIONS.get(d.slug)
         if reg is None:
@@ -172,6 +188,12 @@ def validate_payload(p: V8Payload) -> list[str]:
             continue
         if not (lo <= pts <= hi):
             problems.append(f"扣分越界: 「{label}」{pts} ∉ [{lo}, {hi}]")
+        ded_sum += pts
+    # v12.1 §二 全局限制: 触发项 ≤ 3, 累计扣分 ≤ 5
+    if len(p.deductions) > DEDUCTION_MAX_ITEMS:
+        problems.append(f"扣分项超限: {len(p.deductions)} 项 > {DEDUCTION_MAX_ITEMS} 项")
+    if ded_sum > DEDUCTION_TOTAL_CAP:
+        problems.append(f"扣分累计超限: {ded_sum:g} > {DEDUCTION_TOTAL_CAP}")
     return problems
 
 
@@ -179,6 +201,7 @@ def validate_payload(p: V8Payload) -> list[str]:
 
 def render_personal_report(p: V8Payload) -> str:
     base, ded, total = compute_total(p)
+    raw = base - ded
     grade = grade_for_total(total)
     head_member = f"{p.member} · " if p.member else ""
     head_week = f"{p.week} · " if p.week else ""
@@ -211,11 +234,17 @@ def render_personal_report(p: V8Payload) -> str:
         lines.append(f"| **扣分合计** | **−{ded:.0f}** | | |")
     else:
         lines.append("未触发任何反向扣分项。")
+    if raw < FINAL_FLOOR:
+        total_expr = f"{base:.0f} − {ded:.0f} = {raw:.0f} → 封底 {FINAL_FLOOR:.0f} = {total:.0f}"
+    elif raw > FINAL_CAP:
+        total_expr = f"{base:.0f} − {ded:.0f} = {raw:.0f} → 封顶 {FINAL_CAP:.0f} = {total:.0f}"
+    else:
+        total_expr = f"{base:.0f} − {ded:.0f} = {total:.0f}"
     lines += [
         "",
         "## ④ 总分与等级",
         "",
-        f"**总分 = {base:.0f} − {ded:.0f} = {total:.0f}** → **{grade}**({grade_meaning(grade)})",
+        f"**总分 = {total_expr}** → **{grade}**({grade_meaning(grade)})",
         "",
         GRADE_HONESTY_NOTE,
         "",
@@ -325,23 +354,27 @@ def write_outputs(brand_dir: Path, p: V8Payload) -> Path:
 # ─── CLI ─────────────────────────────────────────────────────────────
 
 def main(argv: Optional[list[str]] = None) -> int:
-    ap = argparse.ArgumentParser(description="学习小组周报自省 v10 输出渲染")
+    ap = argparse.ArgumentParser(description="学习小组周报点评 v12.1 输出渲染")
     ap.add_argument("brand", nargs="?", help="reports/<brand>/ (读 reviews/v8-coach.md)")
     ap.add_argument("--selfcheck", action="store_true", help="注册表完整性自检")
     args = ap.parse_args(argv)
     if args.selfcheck:
         assert len(DIMENSIONS) == 5 and sum(mx for _, _, mx in DIMENSIONS) == 100
-        assert len(DEDUCTIONS) == 5                          # v7.22: 一维一项
+        assert len(DEDUCTIONS) == 5                          # 一维一项
         dims_covered = set()
         for slug, (label, dim, lo, hi, act) in DEDUCTIONS.items():
             assert dim in DIM_MAX and 0 < lo <= hi, slug
-            assert hi == 2, slug                             # v7.22: 每项 1-2 分
+            assert hi == 2, slug                             # 每项 1-2 分
             dims_covered.add(dim)
         assert dims_covered == set(DIM_MAX)                  # 5 项恰好覆盖 5 维
-        assert sum(hi for *_, hi, _ in DEDUCTIONS.values()) == 10   # v7.22: 扣分上限合计 = 10
-        assert {g for _, g, _ in GRADES} == {"A", "B+", "B", "C", "C-"}   # 5 档
-        print("✅ v10 (v7.22) 注册表自检通过 — 5 维=100 分, "
-              "5 项扣分 (一维一项, 各 1-2) 上限合计 10, 5 档 (A/B+/B/C/C-)")
+        for slug in DIM_MAX:                                 # 契约一: 每维恰 5 个档位值
+            assert len(DIM_ALLOWED[slug]) == 5, slug
+        assert DEDUCTION_MAX_ITEMS == 3 and DEDUCTION_TOTAL_CAP == 5   # v12.1 全局上限
+        assert {g for _, g, _ in GRADES} == {"A", "B+", "B", "C"}     # 4 档 (无 C-)
+        assert (FINAL_FLOOR, FINAL_CAP) == (65.0, 95.0)               # clamp 区间
+        print("✅ v12.1 注册表自检通过 — 5 维=100 分 (各 5 档位), "
+              "5 项扣分 (一维一项, 各 1-2) 全局上限 ≤3 项/≤5 分, "
+              "4 档 (A/B+/B/C), 总分 clamp [65, 95]")
         return 0
     if not args.brand:
         print("用法: study_weekly_output.py <brand> | --selfcheck")

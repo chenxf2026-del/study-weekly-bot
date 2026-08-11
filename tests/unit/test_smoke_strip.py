@@ -110,7 +110,7 @@ class TestPanelResolves:
         assert p["scoring_mode"] == "sum_max_score"
         assert p["output_format"] == "study_weekly_v8"
         lenses = p["scoring_lenses"]
-        assert len(lenses) == 5, "v7.22 是 5 维"
+        assert len(lenses) == 5, "v12.1 是 5 维"
         assert sum(l["max_score"] for l in lenses) == 100, "5 维基础分合计 100"
 
     def test_extends_target_exists(self):
@@ -279,7 +279,7 @@ class TestRuntimeAssets:
         skill = (ROOT / "scenes/study-weekly-reflect/judges/v8-coach/SKILL.md")
         txt = skill.read_text(encoding="utf-8")
         assert len(txt) > 2000, "SKILL.md 过短, 疑似没带全"
-        assert "v7.22" in txt, "doctrine 版本号缺失"
+        assert "v12" in txt, "doctrine 版本号缺失"
 
     def test_vendored_integrity(self):
         r = subprocess.run([sys.executable, "scripts/check_vendored.py"],
